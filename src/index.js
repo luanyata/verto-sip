@@ -1,1 +1,0 @@
-import { JsonRpcClient } from './jquery.jsonrpcclient'

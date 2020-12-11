@@ -1,3 +1,4 @@
+import { assureMediaInputId } from 'media-device-id'
 
 // Find the line in sdpLines that starts with |prefix|, and, if specified,
 // contains |substr| (case-insensitive search).

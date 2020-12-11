@@ -1,5 +1,8 @@
 import { FSRTC } from './FSRTC'
 import { JsonRpcClient } from './jsonrpcclient'
+import 'webrtc-adapter';
+
+
 
 var generateGUID =
   typeof window.crypto !== "undefined" &&
@@ -1480,9 +1483,9 @@ export class Verto {
               var x = 0;
               var options;
 
-              $(vlselect_id).selectmenu({});
-              $(vlselect_id).selectmenu("enable");
-              $(vlselect_id).empty();
+              // $(vlselect_id).selectmenu({});
+              // $(vlselect_id).selectmenu("enable");
+              // $(vlselect_id).empty();
 
               document.getElementById(vlselect_id).innerHTML += new Option("Choose a Layout", "none");
 
@@ -1511,7 +1514,7 @@ export class Verto {
               }
 
               if (x) {
-                $(vlselect_id).selectmenu("refresh", true);
+                // $(vlselect_id).selectmenu("refresh", true);
               } else {
                 document.getElementById(vlayout_id).style.display = "none";
               }
@@ -1541,7 +1544,7 @@ export class Verto {
     if (confMan.params.laData.role === "moderator") {
       row_callback = function (nRow, aData, iDisplayIndex, iDisplayIndexFull) {
         if (!aData[5]) {
-          var $row = $("td:eq(5)", nRow);
+          var $row = document.querySelector("td:eq(5)", nRow);
           genControls($row, aData);
 
           if (confMan.params.onLaRow) {
