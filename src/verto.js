@@ -1,61 +1,17 @@
+import 'webrtc-adapter';
 import { FSRTC } from './FSRTC'
 import { JsonRpcClient } from './jsonrpcclient'
-import 'webrtc-adapter';
+import Dialog from './dialog'
+import { v4 } from 'uuid'
+import { DIRECTION, MESSAGE, STATE } from './enums'
 
-
-
-var generateGUID =
-  typeof window.crypto !== "undefined" &&
-    typeof window.crypto.getRandomValues !== "undefined"
-    ? function () {
-      // If we have a cryptographically secure PRNG, use that
-      // http://stackoverflow.com/questions/6906916/collisions-when-generating-uuids-in-javascript
-      var buf = new Uint16Array(8);
-      window.crypto.getRandomValues(buf);
-      var S4 = function (num) {
-        var ret = num.toString(16);
-        while (ret.length < 4) {
-          ret = "0" + ret;
-        }
-        return ret;
-      };
-      return (
-        S4(buf[0]) +
-        S4(buf[1]) +
-        "-" +
-        S4(buf[2]) +
-        "-" +
-        S4(buf[3]) +
-        "-" +
-        S4(buf[4]) +
-        "-" +
-        S4(buf[5]) +
-        S4(buf[6]) +
-        S4(buf[7])
-      );
-    }
-    : function () {
-      // Otherwise, just use Math.random
-      // http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript/2117523#2117523
-      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
-        /[xy]/g,
-        function (c) {
-          var r = (Math.random() * 16) | 0,
-            v = c == "x" ? r : (r & 0x3) | 0x8;
-          return v.toString(16);
-        }
-      );
-    };
-
-/// MASTER OBJ
-/// MASTER OBJ
-export class Verto {
+class Verto {
   constructor(options, callbacks) {
-    let vertoRef = this;
+    let verto = this;
 
-    Verto.saved.push(vertoRef);
+    Verto.saved.push(verto);
 
-    vertoRef.options = Object.assign({
+    verto.options = Object.assign({
       login: null,
       passwd: null,
       socketUrl: null,
@@ -73,82 +29,82 @@ export class Verto {
       useStream: null
     }, options);
 
-    if (vertoRef.options.deviceParams.useCamera) {
+    if (verto.options.deviceParams.useCamera) {
       FSRTC.getValidRes(
-        vertoRef.options.deviceParams.useCamera,
-        vertoRef.options.deviceParams.onResCheck
+        verto.options.deviceParams.useCamera,
+        verto.options.deviceParams.onResCheck
       );
     }
 
-    if (!vertoRef.options.deviceParams.useMic) {
-      vertoRef.options.deviceParams.useMic = "any";
+    if (!verto.options.deviceParams.useMic) {
+      verto.options.deviceParams.useMic = "any";
     }
 
-    if (!vertoRef.options.deviceParams.useSpeak) {
-      vertoRef.options.deviceParams.useSpeak = "any";
+    if (!verto.options.deviceParams.useSpeak) {
+      verto.options.deviceParams.useSpeak = "any";
     }
 
-    if (vertoRef.options.sessid) {
-      Verto.sessid = vertoRef.options.sessid;
+    if (verto.options.sessid) {
+      Verto.sessid = verto.options.sessid;
     } else {
-      vertoRef.sessid =
-        localStorage.getItem("verto_session_uuid") || generateGUID();
-      localStorage.setItem("verto_session_uuid", vertoRef.sessid);
+      verto.sessid =
+        localStorage.getItem("verto_session_uuid") || v4();
+      localStorage.setItem("verto_session_uuid", verto.sessid);
     }
 
-    vertoRef.dialogs = {};
-    vertoRef.callbacks = callbacks || {};
-    vertoRef.eventSUBS = {};
+    verto.dialogs = {};
+    verto.callbacks = callbacks || {};
+    verto.eventSUBS = {};
 
-    vertoRef.rpcClient = new JsonRpcClient({
-      login: vertoRef.options.login,
-      passwd: vertoRef.options.passwd,
-      socketUrl: vertoRef.options.socketUrl,
-      wsFallbackURL: vertoRef.options.wsFallbackURL,
-      turnServer: vertoRef.options.turnServer,
-      loginParams: vertoRef.options.loginParams,
-      userVariables: vertoRef.options.userVariables,
-      sessid: vertoRef.sessid,
+    verto.rpcClient = new JsonRpcClient({
+      login: verto.options.login,
+      passwd: verto.options.passwd,
+      socketUrl: verto.options.socketUrl,
+      wsFallbackURL: verto.options.wsFallbackURL,
+      turnServer: verto.options.turnServer,
+      loginParams: verto.options.loginParams,
+      userVariables: verto.options.userVariables,
+      sessid: verto.sessid,
       onmessage: function (e) {
-        return vertoRef.handleMessage(e.eventData);
+        return verto.handleMessage(e.eventData);
       },
       onWSConnect: function (o) {
         o.call("login", {});
       },
       onWSLogin: function (success) {
-        if (vertoRef.callbacks.onWSLogin) {
-          vertoRef.callbacks.onWSLogin(vertoRef, success);
+        if (verto.callbacks.onWSLogin) {
+          verto.callbacks.onWSLogin(verto, success);
         }
       },
       onWSClose: function (success) {
-        if (vertoRef.callbacks.onWSClose) {
-          vertoRef.callbacks.onWSClose(vertoRef, success);
+        if (verto.callbacks.onWSClose) {
+          verto.callbacks.onWSClose(verto, success);
         }
-        vertoRef.purge();
+        verto.purge();
       },
       onWSClose: function (success) {
-        if (vertoRef.callbacks.onWSClose) {
-          vertoRef.callbacks.onWSClose(vertoRef, success);
+        if (verto.callbacks.onWSClose) {
+          verto.callbacks.onWSClose(verto, success);
         }
-        vertoRef.purge();
+        verto.purge();
       },
       onWSException: function (e) {
-        if (vertoRef.callbacks.onWSException) {
-          vertoRef.callbacks.onWSException(e);
+        if (verto.callbacks.onWSException) {
+          verto.callbacks.onWSException(e);
         }
       }
     });
 
-    var tag = vertoRef.options.tag;
+    var tag = verto.options.tag;
     if (typeof tag === "function") {
       tag = tag();
     }
 
-    if (vertoRef.options.ringFile && vertoRef.options.tag) {
-      vertoRef.ringer = document.getElementById(tag);
+    if (verto.options.ringFile && verto.options.tag) {
+      verto.ringer = document.getElementById(tag);
     }
 
-    vertoRef.rpcClient.call("login", {});
+    verto.rpcClient.call("login", {});
   }
   static deviceParams(obj) {
     var vertoRef = this;
@@ -181,7 +137,8 @@ export class Verto {
     vertoRef.options.passwd = params.passwd;
     vertoRef.rpcClient.loginData(params);
   }
-  static logout(msg) {
+
+  logout(msg) {
     var vertoRef = this;
     vertoRef.rpcClient.closeSocket();
     if (vertoRef.callbacks.onWSClose) {
@@ -189,11 +146,12 @@ export class Verto {
     }
     vertoRef.purge();
   }
-  static login(msg) {
+  login(msg) {
     var vertoRef = this;
     vertoRef.logout();
     vertoRef.rpcClient.call("login", {});
   }
+
   static message(msg) {
     var vertoRef = this;
     var err = 0;
@@ -238,7 +196,8 @@ export class Verto {
         break;
     }
   }
-  static sendMethod(method, params) {
+
+  sendMethod(method, params) {
     var vertoRef = this;
 
     Verto.rpcClient.call(
@@ -347,7 +306,7 @@ export class Verto {
     }
     vertoRef.sendMethod("verto.broadcast", msg);
   }
-  static purge(callID) {
+  purge(callID) {
     var vertoRef = this;
     var x = 0;
     var i;
@@ -357,7 +316,7 @@ export class Verto {
         console.log("purging dialogs");
       }
       x++;
-      vertoRef.dialogs[i].setState(Verto.enum.state.purge);
+      vertoRef.dialogs[i].setState(STATE.purge);
     }
 
     for (i in vertoRef.eventSUBS) {
@@ -381,7 +340,7 @@ export class Verto {
       }
     }
   }
-  static newCall(args, callbacks) {
+  newCall(args, callbacks) {
     var vertoRef = this;
 
     if (!vertoRef.rpcClient.socketReady()) {
@@ -394,9 +353,9 @@ export class Verto {
       vertoRef.options.deviceParams["useCameraLabel"] = args["useCameraLabel"];
     }
 
-    var dialog = new Verto.dialog(
-      Verto.enum.direction.outbound,
-      this,
+    var dialog = new Dialog(
+      DIRECTION.outbound,
+      vertoRef,
       args
     );
 
@@ -408,7 +367,8 @@ export class Verto {
 
     return dialog;
   }
-  static handleMessage(data) {
+
+  handleMessage(data) {
     var vertoRef = this;
 
     if (!(data && data.method)) {
@@ -463,12 +423,12 @@ export class Verto {
               data.params.useStereo = true;
             }
 
-            dialog = new verto.dialog(
-              Verto.enum.direction.inbound,
+            dialog = new Dialog(
+              DIRECTION.inbound,
               vertoRef,
               data.params
             );
-            dialog.setState(Verto.enum.state.recovering);
+            dialog.setState(STATE.recovering);
 
             break;
           case "verto.invite":
@@ -480,8 +440,8 @@ export class Verto {
               data.params.useStereo = true;
             }
 
-            dialog = new Verto.dialog(
-              Verto.enum.direction.inbound,
+            dialog = new Dialog(
+              DIRECTION.inbound,
               vertoRef,
               data.params
             );
@@ -524,13 +484,13 @@ export class Verto {
               vertoRef.callbacks.onMessage(
                 vertoRef,
                 null,
-                Verto.enum.message.pvtEvent,
+                MESSAGE.pvtEvent,
                 data.params
               );
             }
           } else if (!list && key && vertoRef.dialogs[key]) {
             vertoRef.dialogs[key].sendMessage(
-              Verto.enum.message.pvtEvent,
+              MESSAGE.pvtEvent,
               data.params
             );
           } else if (!list) {
@@ -561,7 +521,7 @@ export class Verto {
             vertoRef.callbacks.onMessage(
               vertoRef,
               null,
-              Verto.enum.message.info,
+              MESSAGE.info,
               data.params.msg
             );
           }
@@ -578,7 +538,7 @@ export class Verto {
             vertoRef.callbacks.onMessage(
               vertoRef,
               null,
-              Verto.enum.message.clientReady,
+              MESSAGE.clientReady,
               data.params
             );
           }
@@ -1621,214 +1581,7 @@ export class Verto {
       }
     );
   }
-  static dialog(direction, vertoRef, params) {
-    var dialog = this;
 
-    dialog.params = Object.assign({
-      useVideo: vertoRef.options.useVideo,
-      useStereo: vertoRef.options.useStereo,
-      screenShare: false,
-      useCamera: false,
-      useMic: vertoRef.options.deviceParams.useMic,
-      useMicLabel: vertoRef.options.deviceParams.useMicLabel,
-      useSpeak: vertoRef.options.deviceParams.useSpeak,
-      tag: vertoRef.options.tag,
-      localTag: vertoRef.options.localTag,
-      login: vertoRef.options.login,
-      videoParams: vertoRef.options.videoParams,
-      useStream: vertoRef.options.useStream
-    }, params);
-
-
-    if (!dialog.params.screenShare) {
-      dialog.params.useCamera = vertoRef.options.deviceParams.useCamera;
-      dialog.params.useCameraLabel = vertoRef.options.deviceParams.useCameraLabel;
-    }
-
-    dialog.verto = vertoRef;
-    dialog.direction = direction;
-    dialog.lastState = null;
-    dialog.state = dialog.lastState = Verto.enum.state.new;
-    dialog.callbacks = vertoRef.callbacks;
-    dialog.answered = false;
-    dialog.attach = params.attach || false;
-    dialog.screenShare = params.screenShare || false;
-    dialog.useCamera = dialog.params.useCamera;
-    dialog.useCameraLabel = dialog.params.useCameraLabel;
-    dialog.useMic = dialog.params.useMic;
-    dialog.useMicLabel = dialog.params.useMicLabel;
-    dialog.useSpeak = dialog.params.useSpeak;
-
-    if (dialog.params.callID) {
-      dialog.callID = dialog.params.callID;
-    } else {
-      dialog.callID = dialog.params.callID = generateGUID();
-    }
-
-    if (typeof dialog.params.tag === "function") {
-      dialog.params.tag = dialog.params.tag();
-    }
-
-    if (dialog.params.tag) {
-      dialog.audioStream = document.getElementById(dialog.params.tag);
-
-      if (dialog.params.useVideo) {
-        dialog.videoStream = dialog.audioStream;
-      }
-    } //else conjure one TBD
-
-    if (dialog.params.localTag) {
-      dialog.localVideo = document.getElementById(dialog.params.localTag);
-    }
-
-    dialog.verto.dialogs[dialog.callID] = dialog;
-
-    var RTCcallbacks = {};
-
-    if (dialog.direction == Verto.enum.direction.inbound) {
-      if (dialog.params.display_direction === "outbound") {
-        dialog.params.remote_caller_id_name = dialog.params.caller_id_name;
-        dialog.params.remote_caller_id_number = dialog.params.caller_id_number;
-      } else {
-        dialog.params.remote_caller_id_name = dialog.params.callee_id_name;
-        dialog.params.remote_caller_id_number = dialog.params.callee_id_number;
-      }
-
-      if (!dialog.params.remote_caller_id_name) {
-        dialog.params.remote_caller_id_name = "Nobody";
-      }
-
-      if (!dialog.params.remote_caller_id_number) {
-        dialog.params.remote_caller_id_number = "UNKNOWN";
-      }
-
-      RTCcallbacks.onMessage = function (rtc, msg) {
-        console.debug(msg);
-      };
-
-      RTCcallbacks.onAnswerSDP = function (rtc, sdp) {
-        console.error("answer sdp", sdp);
-      };
-    } else {
-      dialog.params.remote_caller_id_name = "Outbound Call";
-      dialog.params.remote_caller_id_number = dialog.params.destination_number;
-    }
-
-    RTCcallbacks.onICESDP = function (rtc) {
-      console.log("RECV " + rtc.type + " SDP", rtc.mediaData.SDP);
-
-      if (dialog.state == Verto.enum.state.requesting ||
-        dialog.state == Verto.enum.state.answering ||
-        dialog.state == Verto.enum.state.active) {
-        location.reload();
-        return;
-      }
-
-      if (rtc.type == "offer") {
-        if (dialog.state == Verto.enum.state.active) {
-          dialog.setState(Verto.enum.state.requesting);
-          dialog.sendMethod("verto.attach", {
-            sdp: rtc.mediaData.SDP
-          });
-        } else {
-          dialog.setState(Verto.enum.state.requesting);
-
-          dialog.sendMethod("verto.invite", {
-            sdp: rtc.mediaData.SDP
-          });
-        }
-      } else {
-        //answer
-        dialog.setState(Verto.enum.state.answering);
-
-        dialog.sendMethod(dialog.attach ? "verto.attach" : "verto.answer", {
-          sdp: dialog.rtc.mediaData.SDP
-        });
-      }
-    };
-
-    RTCcallbacks.onICE = function (rtc) {
-      //console.log("cand", rtc.mediaData.candidate);
-      if (rtc.type == "offer") {
-        console.log("offer", rtc.mediaData.candidate);
-        return;
-      }
-    };
-
-    RTCcallbacks.onStream = function (rtc, stream) {
-      if (dialog.callbacks.permissionCallback &&
-        typeof dialog.callbacks.permissionCallback.onGranted === "function") {
-        dialog.callbacks.permissionCallback.onGranted(stream);
-      } else if (dialog.verto.options.permissionCallback &&
-        typeof dialog.verto.options.permissionCallback.onGranted === "function") {
-        dialog.verto.options.permissionCallback.onGranted(stream);
-      }
-      console.log("stream started");
-    };
-
-    RTCcallbacks.onRemoteStream = function (rtc, stream) {
-      if (typeof dialog.callbacks.onRemoteStream === "function") {
-        dialog.callbacks.onRemoteStream(stream, dialog);
-      }
-      console.log("remote stream started");
-    };
-
-    RTCcallbacks.onError = function (e) {
-      if (dialog.callbacks.permissionCallback &&
-        typeof dialog.callbacks.permissionCallback.onDenied === "function") {
-        dialog.callbacks.permissionCallback.onDenied();
-      } else if (dialog.verto.options.permissionCallback &&
-        typeof dialog.verto.options.permissionCallback.onDenied === "function") {
-        dialog.verto.options.permissionCallback.onDenied();
-      }
-      console.error("ERROR:", e);
-      dialog.hangup({ causeCode: 501, cause: "Device or Permission Error" });
-    };
-
-    dialog.rtc = new FSRTC({
-      callbacks: RTCcallbacks,
-      localVideo: dialog.screenShare ? null : dialog.localVideo,
-      useVideo: dialog.params.useVideo ? dialog.videoStream : null,
-      useAudio: dialog.audioStream,
-      useStereo: dialog.params.useStereo,
-      videoParams: dialog.params.videoParams,
-      audioParams: verto.options.audioParams,
-      iceServers: verto.options.iceServers,
-      screenShare: dialog.screenShare,
-      useCamera: dialog.useCamera,
-      useCameraLabel: dialog.useCameraLabel,
-      useMic: dialog.useMic,
-      useMicLabel: dialog.useMicLabel,
-      useSpeak: dialog.useSpeak,
-      turnServer: verto.options.turnServer,
-      useStream: dialog.params.useStream
-    });
-
-    dialog.rtc.verto = dialog.verto;
-
-    if (dialog.direction == verto.enum.direction.inbound) {
-      if (dialog.attach) {
-        dialog.answer();
-      } else {
-        dialog.ring();
-      }
-    }
-  }
-  static invite() {
-    var dialog = this;
-    dialog.rtc.call();
-  }
-  static ENUM(s) {
-    var i = 0,
-      o = {};
-    s.split(" ").map(function (x) {
-      o[x] = {
-        name: x,
-        val: i++
-      };
-    });
-    return Object.freeze(o);
-  }
   static refreshDevices(runtime) {
     checkDevices(runtime);
   }
@@ -1859,10 +1612,9 @@ export class Verto {
       runtime(null);
     }
   }
-  static genUUID() {
-    return generateGUID();
-  }
 }
+
+export default Verto
 
 function drop_bad(verto, channel) {
   console.error("drop unauthorized channel: " + channel);
@@ -2280,52 +2032,6 @@ Verto.confMan.destroy = function () {
 };
 
 
-
-Verto.dialog.sendMethod = function (method, obj) {
-  var dialog = this;
-  obj.dialogParams = {};
-
-  for (var i in dialog.params) {
-    if (i == "sdp" && method != "verto.invite" && method != "verto.attach") {
-      continue;
-    }
-
-    if (obj.noDialogParams && i != "callID") {
-      continue;
-    }
-
-    obj.dialogParams[i] = dialog.params[i];
-  }
-
-  delete obj.noDialogParams;
-
-  dialog.verto.rpcClient.call(
-    method,
-    obj,
-
-    function (e) {
-      /* Success */
-      dialog.processReply(method, true, e);
-    },
-
-    function (e) {
-      /* Error */
-      dialog.processReply(method, false, e);
-    }
-  );
-};
-
-function checkStateChange(oldS, newS) {
-  if (
-    newS == Verto.enum.state.purge ||
-    Verto.enum.states[oldS.name][newS.name]
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
 // Attach audio output device to video element using device/sink ID.
 function find_name(id) {
   for (var i in Verto.audioOutDevices) {
@@ -2337,600 +2043,6 @@ function find_name(id) {
 
   return id;
 }
-
-Verto.dialog.setAudioPlaybackDevice = function (
-  sinkId,
-  callback,
-  arg
-) {
-  var dialog = this;
-  var element = dialog.audioStream;
-
-  if (typeof element.sinkId !== "undefined") {
-    var devname = find_name(sinkId);
-    console.info(
-      "Dialog: " + dialog.callID + " Setting speaker:",
-      element,
-      devname
-    );
-
-    element
-      .setSinkId(sinkId)
-      .then(function () {
-        console.log(
-          "Dialog: " +
-          dialog.callID +
-          " Success, audio output device attached: " +
-          sinkId
-        );
-        if (callback) {
-          callback(true, devname, arg);
-        }
-      })
-      .catch(function (error) {
-        var errorMessage = error;
-        if (error.name === "SecurityError") {
-          errorMessage =
-            "Dialog: " +
-            dialog.callID +
-            " You need to use HTTPS for selecting audio output " +
-            "device: " +
-            error;
-        }
-        if (callback) {
-          callback(false, null, arg);
-        }
-        console.error(errorMessage);
-      });
-  } else {
-    console.warn(
-      "Dialog: " +
-      dialog.callID +
-      " Browser does not support output device selection."
-    );
-    if (callback) {
-      callback(false, null, arg);
-    }
-  }
-};
-
-Verto.dialog.setState = function (state) {
-  var dialog = this;
-
-  if (dialog.state == Verto.enum.state.ringing) {
-    dialog.stopRinging();
-  }
-
-  if (dialog.state == state || !checkStateChange(dialog.state, state)) {
-    console.error(
-      "Dialog " +
-      dialog.callID +
-      ": INVALID state change from " +
-      dialog.state.name +
-      " to " +
-      state.name
-    );
-    dialog.hangup();
-    return false;
-  }
-
-  console.log(
-    "Dialog " +
-    dialog.callID +
-    ": state change from " +
-    dialog.state.name +
-    " to " +
-    state.name
-  );
-
-  dialog.lastState = dialog.state;
-  dialog.state = state;
-
-  if (dialog.callbacks.onDialogState) {
-    dialog.callbacks.onDialogState(this);
-  }
-
-  switch (dialog.state) {
-    case Verto.enum.state.early:
-    case Verto.enum.state.active:
-      var speaker = dialog.useSpeak;
-      console.info("Using Speaker: ", speaker);
-
-      if (speaker && speaker !== "any" && speaker !== "none") {
-        setTimeout(function () {
-          dialog.setAudioPlaybackDevice(speaker);
-        }, 500);
-      }
-
-      break;
-
-    case Verto.enum.state.trying:
-      setTimeout(function () {
-        if (dialog.state == Verto.enum.state.trying) {
-          dialog.setState(Verto.enum.state.hangup);
-        }
-      }, 30000);
-      break;
-    case Verto.enum.state.purge:
-      dialog.setState(Verto.enum.state.destroy);
-      break;
-    case Verto.enum.state.hangup:
-      if (
-        dialog.lastState.val > Verto.enum.state.requesting.val &&
-        dialog.lastState.val < Verto.enum.state.hangup.val
-      ) {
-        dialog.sendMethod("verto.bye", {});
-      }
-
-      dialog.setState(Verto.enum.state.destroy);
-      break;
-    case Verto.enum.state.destroy:
-      if (typeof dialog.verto.options.tag === "function") {
-        document.getElementById(dialog.params.tag).remove();
-      }
-
-      delete dialog.verto.dialogs[dialog.callID];
-      if (dialog.params.screenShare) {
-        dialog.rtc.stopPeer();
-      } else {
-        dialog.rtc.stop();
-      }
-      break;
-  }
-
-  return true;
-};
-
-Verto.dialog.processReply = function (method, success, e) {
-  var dialog = this;
-
-  //console.log("Response: " + method + " State:" + dialog.state.name, success, e);
-
-  switch (method) {
-    case "verto.answer":
-    case "verto.attach":
-      if (success) {
-        dialog.setState(Verto.enum.state.active);
-      } else {
-        dialog.hangup();
-      }
-      break;
-    case "verto.invite":
-      if (success) {
-        dialog.setState(Verto.enum.state.trying);
-      } else {
-        dialog.setState(Verto.enum.state.destroy);
-      }
-      break;
-
-    case "verto.bye":
-      dialog.hangup();
-      break;
-
-    case "verto.modify":
-      if (e.holdState) {
-        if (e.holdState == "held") {
-          if (dialog.state != Verto.enum.state.held) {
-            dialog.setState(Verto.enum.state.held);
-          }
-        } else if (e.holdState == "active") {
-          if (dialog.state != Verto.enum.state.active) {
-            dialog.setState(Verto.enum.state.active);
-          }
-        }
-      }
-
-      if (success) {
-      }
-
-      break;
-
-    default:
-      break;
-  }
-};
-
-Verto.dialog.hangup = function (params) {
-  var dialog = this;
-
-  if (params) {
-    if (params.causeCode) {
-      dialog.causeCode = params.causeCode;
-    }
-
-    if (params.cause) {
-      dialog.cause = params.cause;
-    }
-  }
-
-  if (!dialog.cause && !dialog.causeCode) {
-    dialog.cause = "NORMAL_CLEARING";
-  }
-
-  if (
-    dialog.state.val >= Verto.enum.state.new.val &&
-    dialog.state.val < Verto.enum.state.hangup.val
-  ) {
-    dialog.setState(Verto.enum.state.hangup);
-  } else if (dialog.state.val < Verto.enum.state.destroy) {
-    dialog.setState(Verto.enum.state.destroy);
-  }
-};
-
-Verto.dialog.stopRinging = function () {
-  var dialog = this;
-  if (dialog.verto.ringer) {
-    dialog.verto.ringer.stop();
-  }
-};
-
-Verto.dialog.indicateRing = function () {
-  var dialog = this;
-
-  if (dialog.verto.ringer) {
-    //dialog.verto.ringer.attr("src", dialog.verto.options.ringFile)[0].play();
-
-    setTimeout(function () {
-      dialog.stopRinging();
-      if (dialog.state == Verto.enum.state.ringing) {
-        dialog.indicateRing();
-      }
-    }, dialog.verto.options.ringSleep);
-  }
-};
-
-Verto.dialog.ring = function () {
-  var dialog = this;
-
-  dialog.setState(Verto.enum.state.ringing);
-  dialog.indicateRing();
-};
-
-Verto.dialog.useVideo = function (on) {
-  var dialog = this;
-
-  dialog.params.useVideo = on;
-
-  if (on) {
-    dialog.videoStream = dialog.audioStream;
-  } else {
-    dialog.videoStream = null;
-  }
-
-  dialog.rtc.useVideo(dialog.videoStream, dialog.localVideo);
-};
-
-Verto.dialog.setMute = function (what) {
-  var dialog = this;
-  return dialog.rtc.setMute(what);
-};
-
-Verto.dialog.getMute = function () {
-  var dialog = this;
-  return dialog.rtc.getMute();
-};
-
-Verto.dialog.setVideoMute = function (what) {
-  var dialog = this;
-  return dialog.rtc.setVideoMute(what);
-};
-
-Verto.dialog.getVideoMute = function () {
-  var dialog = this;
-  return dialog.rtc.getVideoMute();
-};
-
-Verto.dialog.useStereo = function (on) {
-  var dialog = this;
-
-  dialog.params.useStereo = on;
-  dialog.rtc.useStereo(on);
-};
-
-Verto.dialog.dtmf = function (digits) {
-  var dialog = this;
-  if (digits) {
-    dialog.sendMethod("verto.info", {
-      dtmf: digits
-    });
-  }
-};
-
-Verto.dialog.rtt = function (obj) {
-  var dialog = this;
-  var pobj = {};
-
-  if (!obj) {
-    return false;
-  }
-
-  pobj.code = obj.code;
-  pobj.chars = obj.chars;
-
-  if (pobj.chars || pobj.code) {
-    dialog.sendMethod("verto.info", {
-      txt: obj,
-      noDialogParams: true
-    });
-  }
-};
-
-Verto.dialog.transfer = function (dest, params) {
-  var dialog = this;
-  if (dest) {
-    dialog.sendMethod("verto.modify", {
-      action: "transfer",
-      destination: dest,
-      params: params
-    });
-  }
-};
-
-Verto.dialog.replace = function (replaceCallID, params) {
-  var dialog = this;
-  if (replaceCallID) {
-    dialog.sendMethod("verto.modify", {
-      action: "replace",
-      replaceCallID: replaceCallID,
-      params: params
-    });
-  }
-};
-
-Verto.dialog.hold = function (params) {
-  var dialog = this;
-
-  dialog.sendMethod("verto.modify", {
-    action: "hold",
-    params: params
-  });
-};
-
-Verto.dialog.unhold = function (params) {
-  var dialog = this;
-
-  dialog.sendMethod("verto.modify", {
-    action: "unhold",
-    params: params
-  });
-};
-
-Verto.dialog.toggleHold = function (params) {
-  var dialog = this;
-
-  dialog.sendMethod("verto.modify", {
-    action: "toggleHold",
-    params: params
-  });
-};
-
-Verto.dialog.message = function (msg) {
-  var dialog = this;
-  var err = 0;
-
-  msg.from = dialog.params.login;
-
-  if (!msg.to) {
-    console.error("Missing To");
-    err++;
-  }
-
-  if (!msg.body) {
-    console.error("Missing Body");
-    err++;
-  }
-
-  if (err) {
-    return false;
-  }
-
-  dialog.sendMethod("verto.info", {
-    msg: msg
-  });
-
-  return true;
-};
-
-Verto.dialog.answer = function (params) {
-  var dialog = this;
-
-  if (!dialog.answered) {
-    if (!params) {
-      params = {};
-    }
-
-    params.sdp = dialog.params.sdp;
-
-    if (params) {
-      if (params.useVideo) {
-        dialog.useVideo(true);
-      }
-      dialog.params.callee_id_name = params.callee_id_name;
-      dialog.params.callee_id_number = params.callee_id_number;
-
-      if (params.useCamera) {
-        dialog.useCamera = params.useCamera;
-        dialog.useCameraLabel = params.useCameraLabel;
-      }
-
-      if (params.useMic) {
-        dialog.useMic = params.useMic;
-        dialog.useMic = params.useMicLabel;
-      }
-
-      if (params.useSpeak) {
-        dialog.useSpeak = params.useSpeak;
-      }
-    }
-
-    dialog.rtc.createAnswer(params);
-    dialog.answered = true;
-  }
-};
-
-Verto.dialog.handleAnswer = function (params) {
-  var dialog = this;
-
-  dialog.gotAnswer = true;
-
-  if (dialog.state.val >= Verto.enum.state.active.val) {
-    return;
-  }
-
-  if (dialog.state.val >= Verto.enum.state.early.val) {
-    dialog.setState(Verto.enum.state.active);
-  } else {
-    if (dialog.gotEarly) {
-      console.log(
-        "Dialog " +
-        dialog.callID +
-        " Got answer while still establishing early media, delaying..."
-      );
-    } else {
-      console.log("Dialog " + dialog.callID + " Answering Channel");
-      dialog.rtc.answer(
-        params.sdp,
-        function () {
-          dialog.setState(Verto.enum.state.active);
-        },
-        function (e) {
-          console.error(e);
-          dialog.hangup();
-        }
-      );
-      console.log("Dialog " + dialog.callID + "ANSWER SDP", params.sdp);
-    }
-  }
-};
-
-Verto.dialog.cidString = function (enc) {
-  var dialog = this;
-  var party =
-    dialog.params.remote_caller_id_name +
-    (enc ? " &lt;" : " <") +
-    dialog.params.remote_caller_id_number +
-    (enc ? "&gt;" : ">");
-  return party;
-};
-
-Verto.dialog.sendMessage = function (msg, params) {
-  var dialog = this;
-
-  if (dialog.callbacks.onMessage) {
-    dialog.callbacks.onMessage(dialog.verto, dialog, msg, params);
-  }
-};
-
-Verto.dialog.handleInfo = function (params) {
-  var dialog = this;
-
-  dialog.sendMessage(Verto.enum.message.info, params);
-};
-
-Verto.dialog.handleDisplay = function (params) {
-  var dialog = this;
-
-  if (params.display_name) {
-    dialog.params.remote_caller_id_name = params.display_name;
-  }
-  if (params.display_number) {
-    dialog.params.remote_caller_id_number = params.display_number;
-  }
-
-  dialog.sendMessage(Verto.enum.message.display, {});
-};
-
-Verto.dialog.handleMedia = function (params) {
-  var dialog = this;
-
-  if (dialog.state.val >= Verto.enum.state.early.val) {
-    return;
-  }
-
-  dialog.gotEarly = true;
-
-  dialog.rtc.answer(
-    params.sdp,
-    function () {
-      console.log("Dialog " + dialog.callID + "Establishing early media");
-      dialog.setState(Verto.enum.state.early);
-
-      if (dialog.gotAnswer) {
-        console.log("Dialog " + dialog.callID + "Answering Channel");
-        dialog.setState(Verto.enum.state.active);
-      }
-    },
-    function (e) {
-      console.error(e);
-      dialog.hangup();
-    }
-  );
-  console.log("Dialog " + dialog.callID + "EARLY SDP", params.sdp);
-};
-
-Verto.enum = {};
-
-Verto.enum.states = Object.freeze({
-  new: {
-    requesting: 1,
-    recovering: 1,
-    ringing: 1,
-    destroy: 1,
-    answering: 1,
-    hangup: 1
-  },
-  requesting: {
-    trying: 1,
-    hangup: 1,
-    active: 1
-  },
-  recovering: {
-    answering: 1,
-    hangup: 1
-  },
-  trying: {
-    active: 1,
-    early: 1,
-    hangup: 1
-  },
-  ringing: {
-    answering: 1,
-    hangup: 1
-  },
-  answering: {
-    active: 1,
-    hangup: 1
-  },
-  active: {
-    answering: 1,
-    requesting: 1,
-    hangup: 1,
-    held: 1
-  },
-  held: {
-    hangup: 1,
-    active: 1
-  },
-  early: {
-    hangup: 1,
-    active: 1
-  },
-  hangup: {
-    destroy: 1
-  },
-  destroy: {},
-  purge: {
-    destroy: 1
-  }
-});
-
-Verto.enum.state = Verto.ENUM(
-  "new requesting trying recovering ringing answering early active held hangup destroy purge"
-);
-Verto.enum.direction = Verto.ENUM("inbound outbound");
-Verto.enum.message = Verto.ENUM("display info pvtEvent clientReady");
-
-Verto.enum = Object.freeze(Verto.enum);
 
 Verto.saved = [];
 

@@ -110,7 +110,7 @@ export class FSRTC {
     self.options.useStereo = on;
   }
   // Sets Opus in stereo if stereo is enabled, by adding the stereo=1 fmtp param.
-  static stereoHack(sdp) {
+   stereoHack(sdp) {
     var self = this;
 
     if (!self.options.useStereo) {
@@ -149,7 +149,8 @@ export class FSRTC {
     sdp = sdpLines.join("\r\n");
     return sdp;
   }
-  static answer(sdp, onSuccess, onError) {
+  
+   answer(sdp, onSuccess, onError) {
     this.peer.addAnswerSDP(
       {
         type: "answer",
@@ -350,7 +351,8 @@ export class FSRTC {
       });
     }
   }
-  static call(profile) {
+  
+  call(profile) {
     checkCompat();
 
     var self = this;
@@ -470,7 +472,7 @@ export class FSRTC {
     var cached = localStorage.getItem("res_" + cam);
 
     if (cached) {
-      var cache = JSON.parse(cache);
+      var cache = JSON.stringify(cache);
 
       if (cache) {
         FSRTC.validRes = cache.validRes;
@@ -581,7 +583,8 @@ function onMessage(self, msg) {
   doCallback(self, "onICESDP", msg);
 }
 
-FSRTCattachMediaStream = function (element, stream) {
+const FSRTCattachMediaStream = function (element, stream) {
+  console.warn(element);
   if (typeof element.srcObject !== "undefined") {
     element.srcObject = stream;
   } else {
@@ -616,14 +619,6 @@ function onOfferSDP(self, sdp) {
   console.log("Offer SDP");
   doCallback(self, "onOfferSDP");
 }
-
-
-
-
-
-
-
-
 
 function getMediaParams(obj) {
   var audio;
@@ -1201,8 +1196,8 @@ var checkRes = function (cam, func) {
     return;
   }
 
-  w = resList[resI][0];
-  h = resList[resI][1];
+ let w = resList[resI][0];
+ let h = resList[resI][1];
   resI++;
 
   var video = {
@@ -1230,5 +1225,3 @@ var checkRes = function (cam, func) {
     }
   });
 };
-
-

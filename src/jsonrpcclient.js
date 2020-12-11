@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axiosRequest from './helpers/axiosRequest'
 
 /**
  * @fn new
@@ -51,6 +51,10 @@ export class JsonRpcClient {
 
     self.ws_cnt = 0;
     self.ws_cnt_fallback = 0;
+    self._ws_socket = null;
+    self._current_id = 1;
+    self._ws_callbacks = {};
+    self.q = [];
 
     // Declare an instance version of the onmessage callback to wrap 'this'.
     this.wsOnMessage = function (event) {
@@ -88,7 +92,7 @@ export class JsonRpcClient {
    * @param success_cb A callback for successful request.
    * @param error_cb   A callback for error.
    */
-  static call(method,
+   call(method,
     params,
     success_cb,
     error_cb) {
@@ -133,7 +137,7 @@ export class JsonRpcClient {
     }
 
 
-    axios.post(this.options.ajaxUrl, JSON.stringify(request))
+    axiosRequest.post(this.options.ajaxUrl, JSON.stringify(request))
       .then(data => {
         if ("error" in data)
           error_cb(data.error, this);
@@ -189,7 +193,7 @@ export class JsonRpcClient {
       throw "JsonRpcClient.notify used with no websocket and no http endpoint.";
     }
 
-    axios.post(this.options.ajaxUrl, JSON.stringify(request));
+    axiosRequest.post(this.options.ajaxUrl, JSON.stringify(request));
   }
   /**
    * Make a batch-call by using a callback.
@@ -220,14 +224,15 @@ export class JsonRpcClient {
    * @fn _getSocket
    * @memberof JsonRpcClient
    */
-  static socketReady() {
-    if (this._ws_socket === null || this._ws_socket.readyState > 1) {
+   socketReady() {
+    if (this._ws_socket === null ||this._ws_socket === undefined|| this._ws_socket.readyState > 1) {
       return false;
     }
 
     return true;
   }
-  static closeSocket() {
+  
+  closeSocket() {
     var self = this;
     if (self.socketReady()) {
       self._ws_socket.onclose = function (w) {
@@ -243,7 +248,7 @@ export class JsonRpcClient {
     self.options.loginParams = params.loginParams;
     self.options.userVariables = params.userVariables;
   }
-  static connectSocket(onmessage_cb) {
+   connectSocket(onmessage_cb) {
     var self = this;
 
     if (self.to) {
@@ -319,7 +324,7 @@ export class JsonRpcClient {
 
           var req;
           // Send the requests.
-          while ((req = JsonRpcClient.q.pop())) {
+          while ((req = self.q.pop())) {
             self._ws_socket.send(req);
           }
         };
@@ -332,7 +337,7 @@ export class JsonRpcClient {
     if (self.to)
       clearTimeout(self.to);
   }
-  static _getSocket(onmessage_cb) {
+  _getSocket(onmessage_cb) {
     // If there is no ws url set, we don't have a socket.
     // Likewise, if there is no window.WebSocket.
     if (this.options.socketUrl === null || !("WebSocket" in window))
@@ -348,7 +353,7 @@ export class JsonRpcClient {
    * @fn _wsCall
    * @memberof JsonRpcClient
    */
-  static _wsCall(socket,
+   _wsCall(socket,
     request,
     success_cb,
     error_cb) {
@@ -357,7 +362,7 @@ export class JsonRpcClient {
     if (socket.readyState < 1) {
       // The websocket is not open yet; we have to set sending of the message in onopen.
       self = this; // In closure below, this is set to the WebSocket.  Use self instead.
-      JsonRpcClient.q.push(request_json);
+      self.q.push(request_json);
     } else {
       // We have a socket and it should be ready to send on.
       socket.send(request_json);
@@ -365,6 +370,7 @@ export class JsonRpcClient {
 
     // Setup callbacks.  If there is an id, this is a call and not a notify.
     if ("id" in request && typeof success_cb !== "undefined") {
+
       this._ws_callbacks[request.id] = {
         request: request_json,
         request_obj: request,
@@ -380,7 +386,7 @@ export class JsonRpcClient {
    *
    * @param event The websocket onmessage-event.
    */
-  static _wsOnMessage(event) {
+   _wsOnMessage(event) {
     // Check if this could be a JSON RPC message.
     var response;
 
@@ -562,31 +568,15 @@ export class JsonRpcClient {
 JsonRpcClient._ws_socket = null;
 
 /// Object <id>: { success_cb: cb, error_cb: cb }
-JsonRpcClient._ws_callbacks = {};
+// JsonRpcClient._ws_callbacks = {};
 
 /// The next JSON-RPC request id.
-JsonRpcClient._current_id = 1;
-
-
-
-
-
-
-
-
-
-
-
-
+// JsonRpcClient._current_id = 1;
 
 /**
  * Queue to save messages delivered when websocket is not ready
  */
-JsonRpcClient.q = [];
-
-
-
-
+// JsonRpcClient.q = [];
 /**
  * @sa JsonRpcClient.prototype.call
  */
@@ -701,7 +691,7 @@ JsonRpcClient._batchObject._execute = function () {
 
   // Send request
 
-  axios.post(self.jsonrpcclient.options.ajaxUrl, JSON.stringify(batch_request))
+  axiosRequest.post(self.jsonrpcclient.options.ajaxUrl, JSON.stringify(batch_request))
     .then(success_cb)
     .catch((jqXHR, textStatus, errorThrown) => self.error_cb(jqXHR, textStatus, errorThrown))
 };
