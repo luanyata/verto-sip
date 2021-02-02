@@ -241,13 +241,15 @@ export class JsonRpcClient {
       self._ws_socket.close();
     }
   }
-  static loginData(params) {
+  
+  loginData(params) {
     var self = this;
     self.options.login = params.login;
     self.options.passwd = params.passwd;
     self.options.loginParams = params.loginParams;
     self.options.userVariables = params.userVariables;
   }
+  
    connectSocket(onmessage_cb) {
     var self = this;
 
@@ -266,6 +268,9 @@ export class JsonRpcClient {
       self._ws_socket = new WebSocket(self.options.socketUrl);
 
       if (self._ws_socket) {
+
+
+        console.warn(self._ws_socket);
         // Set up onmessage handler.
         self._ws_socket.onmessage = onmessage_cb;
         self._ws_socket.onclose = function (w) {
@@ -287,6 +292,8 @@ export class JsonRpcClient {
               self.options.wsFallbackURL[self.ws_cnt_fallback];
             self.ws_cnt_fallback++;
           }
+
+         
 
           console.error(
             "Websocket Lost " +
