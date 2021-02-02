@@ -84,10 +84,8 @@ export class FSRTC {
     if (self.options.useVideo) {
       self.options.useVideo.style.display = "none";
     }
-
-    setCompat();
-    checkCompat();
   }
+
   static useVideo(obj, local) {
     var self = this;
 
@@ -110,7 +108,7 @@ export class FSRTC {
     self.options.useStereo = on;
   }
   // Sets Opus in stereo if stereo is enabled, by adding the stereo=1 fmtp param.
-   stereoHack(sdp) {
+  stereoHack(sdp) {
     var self = this;
 
     if (!self.options.useStereo) {
@@ -149,8 +147,8 @@ export class FSRTC {
     sdp = sdpLines.join("\r\n");
     return sdp;
   }
-  
-   answer(sdp, onSuccess, onError) {
+
+  answer(sdp, onSuccess, onError) {
     this.peer.addAnswerSDP(
       {
         type: "answer",
@@ -166,7 +164,8 @@ export class FSRTC {
       self.peer.stop();
     }
   }
-  static stop() {
+
+  stop() {
     var self = this;
 
     if (self.options.useVideo) {
@@ -200,11 +199,13 @@ export class FSRTC {
       self.peer.stop();
     }
   }
-  static getMute() {
+
+  getMute() {
     var self = this;
     return self.audioEnabled;
   }
-  static setMute(what) {
+
+  setMute(what) {
     var self = this;
     if (!self.localStream) {
       return false;
@@ -260,7 +261,7 @@ export class FSRTC {
 
     return !self.videoEnabled;
   }
-  static createAnswer(params) {
+  createAnswer(params) {
     var self = this;
     self.type = "answer";
     self.remoteSDP = params.sdp;
@@ -351,10 +352,8 @@ export class FSRTC {
       });
     }
   }
-  
-  call(profile) {
-    checkCompat();
 
+  call(profile) {
     var self = this;
     var screen = false;
 
@@ -445,6 +444,7 @@ export class FSRTC {
         }, onSuccess, onError);
         */
   }
+
   static resSupported(w, h) {
     for (var i in FSRTC.validRes) {
       if (FSRTC.validRes[i][0] == w && FSRTC.validRes[i][1] == h) {
@@ -454,6 +454,7 @@ export class FSRTC {
 
     return false;
   }
+
   static bestResSupported() {
     var w = 0,
       h = 0;
@@ -467,6 +468,7 @@ export class FSRTC {
 
     return [w, h];
   }
+
   static getValidRes(cam, func) {
     var used = [];
     var cached = localStorage.getItem("res_" + cam);
@@ -488,6 +490,7 @@ export class FSRTC {
 
     checkRes(cam, func);
   }
+
   static checkPerms(runtime, check_audio, check_video) {
     getUserMedia({
       constraints: { audio: check_audio, video: check_video },
@@ -515,15 +518,6 @@ export class FSRTC {
 }
 
 FSRTC.validRes = [];
-
-
-
-
-function setCompat() { }
-
-function checkCompat() {
-  return true;
-}
 
 function onStreamError(self, e) {
   console.log(
@@ -1170,7 +1164,6 @@ function getUserMedia(options) {
     });
 }
 
-
 var resList = [
   [160, 120],
   [320, 180],
@@ -1196,8 +1189,8 @@ var checkRes = function (cam, func) {
     return;
   }
 
- let w = resList[resI][0];
- let h = resList[resI][1];
+  let w = resList[resI][0];
+  let h = resList[resI][1];
   resI++;
 
   var video = {
