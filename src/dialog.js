@@ -1,9 +1,10 @@
 import { FSRTC } from './FSRTC'
-import { v4 } from 'uuid'
-import { DIRECTION, MESSAGE, STATE,STATES } from './enums'
+import { v4 as generateUUID } from 'uuid'
+import { DIRECTION, MESSAGE, STATE, STATES } from './enums'
 
 class Dialog {
-  constructor(direction, vertoRef, params) {
+  constructor(direction, vertoRef, params, audioOutDevices) {
+
     var dialog = this;
 
     dialog.params = Object.assign({
@@ -27,6 +28,7 @@ class Dialog {
       dialog.params.useCameraLabel = vertoRef.options.deviceParams.useCameraLabel;
     }
 
+    dialog.audioOutDevices = audioOutDevices
     dialog.verto = vertoRef;
     dialog.direction = direction;
     dialog.lastState = null;
@@ -44,7 +46,7 @@ class Dialog {
     if (dialog.params.callID) {
       dialog.callID = dialog.params.callID;
     } else {
-      dialog.callID = dialog.params.callID = v4();
+      dialog.callID = dialog.params.callID = generateUUID();
     }
 
     if (typeof dialog.params.tag === "function") {
@@ -97,7 +99,8 @@ class Dialog {
     }
 
     RTCcallbacks.onICESDP = function (rtc) {
-      console.log("RECV " + rtc.type + " SDP", rtc.mediaData.SDP);
+
+      console.log(`RECV ${rtc.type} SDP`, rtc.mediaData.SDP);
 
       if (dialog.state == STATE.requesting ||
         dialog.state == STATE.answering ||
@@ -167,7 +170,7 @@ class Dialog {
       dialog.hangup({ causeCode: 501, cause: "Device or Permission Error" });
     };
 
-    
+
 
     dialog.rtc = new FSRTC({
       callbacks: RTCcallbacks,
@@ -247,9 +250,9 @@ class Dialog {
     var element = dialog.audioStream;
 
     if (typeof element.sinkId !== "undefined") {
-      var devname = find_name(sinkId);
+      var devname = this._findName(sinkId, dialog.audioOutDevices);
       console.info(
-        "Dialog: " + dialog.callID + " Setting speaker:",
+        `Dialog: ${dialog.callID} Setting speaker:`,
         element,
         devname
       );
@@ -258,10 +261,7 @@ class Dialog {
         .setSinkId(sinkId)
         .then(function () {
           console.log(
-            "Dialog: " +
-            dialog.callID +
-            " Success, audio output device attached: " +
-            sinkId
+            `Dialog: ${dialog.callID} Success, audio output device attached: ${sinkId}`
           );
           if (callback) {
             callback(true, devname, arg);
@@ -270,12 +270,7 @@ class Dialog {
         .catch(function (error) {
           var errorMessage = error;
           if (error.name === "SecurityError") {
-            errorMessage =
-              "Dialog: " +
-              dialog.callID +
-              " You need to use HTTPS for selecting audio output " +
-              "device: " +
-              error;
+            errorMessage = `Dialog: ${dialog.callID} You need to use HTTPS for selecting audio output device: ${error}`;
           }
           if (callback) {
             callback(false, null, arg);
@@ -283,11 +278,7 @@ class Dialog {
           console.error(errorMessage);
         });
     } else {
-      console.warn(
-        "Dialog: " +
-        dialog.callID +
-        " Browser does not support output device selection."
-      );
+      console.warn(`Dialog: ${dialog.callID} Browser does not support output device selection.`);
       if (callback) {
         callback(false, null, arg);
       }
@@ -301,29 +292,15 @@ class Dialog {
       dialog.stopRinging();
     }
 
-console.warn(dialog.state, state);
+    console.warn(dialog.state, state);
 
     if (dialog.state == state || !this._checkStateChange(dialog.state, state)) {
-      console.error(
-        "Dialog " +
-        dialog.callID +
-        ": INVALID state change from " +
-        dialog.state +
-        " to " +
-        state
-      );
+      console.error(`Dialog ${dialog.callID}: INVALID state change from ${dialog.state} to ${state}`);
       dialog.hangup();
       return false;
     }
 
-    console.log(
-      "Dialog " +
-      dialog.callID +
-      ": state change from " +
-      dialog.state.name +
-      " to " +
-      state.name
-    );
+    console.log(`Dialog ${dialog.callID}: state change from ${dialog.state.name} to ${state.name}`);
 
     dialog.lastState = dialog.state;
     dialog.state = state;
@@ -422,9 +399,6 @@ console.warn(dialog.state, state);
           }
         }
 
-        if (success) {
-        }
-
         break;
 
       default:
@@ -470,7 +444,7 @@ console.warn(dialog.state, state);
     var dialog = this;
 
     if (dialog.verto.ringer) {
-      //dialog.verto.ringer.attr("src", dialog.verto.options.ringFile)[0].play();
+      dialog.verto.ringer.attr("src", dialog.verto.options.ringFile)[0].play();
 
       setTimeout(function () {
         dialog.stopRinging();
@@ -503,36 +477,30 @@ console.warn(dialog.state, state);
   };
 
   setMute(what) {
-    var dialog = this;
-    return dialog.rtc.setMute(what);
+    return this.rtc.setMute(what);
   };
 
   getMute() {
-    var dialog = this;
-    return dialog.rtc.getMute();
+    return this.rtc.getMute();
   };
 
   setVideoMute(what) {
-    var dialog = this;
-    return dialog.rtc.setVideoMute(what);
+    return this.rtc.setVideoMute(what);
   };
 
   getVideoMute() {
-    var dialog = this;
-    return dialog.rtc.getVideoMute();
+    return this.rtc.getVideoMute();
   };
 
   useStereo(on) {
-    var dialog = this;
-
     dialog.params.useStereo = on;
-    dialog.rtc.useStereo(on);
+    this.rtc.useStereo(on);
   };
 
   dtmf(digits) {
-    var dialog = this;
+
     if (digits) {
-      dialog.sendMethod("verto.info", {
+      this.sendMethod("verto.info", {
         dtmf: digits
       });
     }
@@ -683,13 +651,9 @@ console.warn(dialog.state, state);
       dialog.setState(STATE.active);
     } else {
       if (dialog.gotEarly) {
-        console.log(
-          "Dialog " +
-          dialog.callID +
-          " Got answer while still establishing early media, delaying..."
-        );
+        console.log(`Dialog ${dialog.callID} Got answer while still establishing early media, delaying...`);
       } else {
-        console.log("Dialog " + dialog.callID + " Answering Channel");
+        console.log(`Dialog ${dialog.callID} Answering Channel`);
         dialog.rtc.answer(
           params.sdp,
           function () {
@@ -700,19 +664,13 @@ console.warn(dialog.state, state);
             dialog.hangup();
           }
         );
-        console.log("Dialog " + dialog.callID + "ANSWER SDP", params.sdp);
+        console.log(`Dialog ${dialog.callID} ANSWER SDP`, params.sdp);
       }
     }
   };
 
   cidString(enc) {
-    var dialog = this;
-    var party =
-      dialog.params.remote_caller_id_name +
-      (enc ? " &lt;" : " <") +
-      dialog.params.remote_caller_id_number +
-      (enc ? "&gt;" : ">");
-    return party;
+    return `${this.params.remote_caller_id_name} ${enc ? " &lt;" : " <"} ${this.params.remote_caller_id_number} ${enc ? "&gt;" : ">"}`
   };
 
   sendMessage(msg, params) {
@@ -754,11 +712,11 @@ console.warn(dialog.state, state);
     dialog.rtc.answer(
       params.sdp,
       function () {
-        console.log("Dialog " + dialog.callID + "Establishing early media");
+        console.log(`Dialog ${dialog.callID} Establishing early media`);
         dialog.setState(STATE.early);
 
         if (dialog.gotAnswer) {
-          console.log("Dialog " + dialog.callID + "Answering Channel");
+          console.log(`Dialog ${dialog.callID} Answering Channel`);
           dialog.setState(STATE.active);
         }
       },
@@ -767,7 +725,7 @@ console.warn(dialog.state, state);
         dialog.hangup();
       }
     );
-    console.log("Dialog " + dialog.callID + "EARLY SDP", params.sdp);
+    console.log(`Dialog ${dialog.callID} EARLY SDP`, params.sdp);
   };
 
   _checkStateChange(oldS, newS) {
@@ -780,6 +738,19 @@ console.warn(dialog.state, state);
     }
 
     return false;
+  }
+
+  // Attach audio output device to video element using device/sink ID.
+  _findName(id, audioOutDevices) {
+
+    for (var i in audioOutDevices) {
+      var source = audioOutDevices[i];
+      if (source.id === id) {
+        return source.label;
+      }
+    }
+
+    return id;
   }
 
 }
