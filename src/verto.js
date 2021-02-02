@@ -2,7 +2,7 @@ import 'webrtc-adapter';
 import { FSRTC } from './FSRTC'
 import { JsonRpcClient } from './jsonrpcclient'
 import Dialog from './dialog'
-import { v4 } from 'uuid'
+import { v4 as generateUUID } from 'uuid'
 import { DIRECTION, MESSAGE, STATE } from './enums'
 
 class Verto {
@@ -48,7 +48,7 @@ class Verto {
       Verto.sessid = verto.options.sessid;
     } else {
       verto.sessid =
-        localStorage.getItem("verto_session_uuid") || v4();
+        localStorage.getItem("verto_session_uuid") || generateUUID();
       localStorage.setItem("verto_session_uuid", verto.sessid);
     }
 
@@ -68,19 +68,11 @@ class Verto {
       onmessage: function (e) {
         return verto.handleMessage(e.eventData);
       },
-      onWSConnect: function (o) {
-        o.call("login", {});
-      },
+
       onWSLogin: function (success) {
         if (verto.callbacks.onWSLogin) {
           verto.callbacks.onWSLogin(verto, success);
         }
-      },
-      onWSClose: function (success) {
-        if (verto.callbacks.onWSClose) {
-          verto.callbacks.onWSClose(verto, success);
-        }
-        verto.purge();
       },
       onWSClose: function (success) {
         if (verto.callbacks.onWSClose) {
@@ -106,6 +98,7 @@ class Verto {
 
     verto.rpcClient.call("login", {});
   }
+
   static deviceParams(obj) {
     var vertoRef = this;
 
@@ -120,6 +113,7 @@ class Verto {
       );
     }
   }
+
   static videoParams(obj) {
     var vertoRef = this;
 
@@ -127,11 +121,12 @@ class Verto {
       vertoRef.options.videoParams[i] = obj[i];
     }
   }
+
   static iceServers(obj) {
-    var vertoRef = this;
-    vertoRef.options.iceServers = obj;
+    this.options.iceServers = obj;
   }
-  static loginData(params) {
+
+  loginData(params) {
     var vertoRef = this;
     vertoRef.options.login = params.login;
     vertoRef.options.passwd = params.passwd;
@@ -146,6 +141,7 @@ class Verto {
     }
     vertoRef.purge();
   }
+
   login(msg) {
     var vertoRef = this;
     vertoRef.logout();
@@ -176,7 +172,8 @@ class Verto {
 
     return true;
   }
-  static processReply(method, success, e) {
+
+  processReply(method, success, e) {
     var vertoRef = this;
     var i;
 
@@ -200,7 +197,7 @@ class Verto {
   sendMethod(method, params) {
     var vertoRef = this;
 
-    Verto.rpcClient.call(
+    this.rpcClient.call(
       method,
       params,
 
@@ -215,6 +212,7 @@ class Verto {
       }
     );
   }
+
   static subscribe(channel, sparams) {
     let vertoRef = this;
     var r = [];
@@ -238,6 +236,7 @@ class Verto {
 
     return r;
   }
+
   static unsubscribe(handle) {
     var vertoRef = this;
     var i;
@@ -295,7 +294,8 @@ class Verto {
       }
     }
   }
-  static broadcast(channel, params) {
+
+  broadcast(channel, params) {
     var vertoRef = this;
     var msg = {
       eventChannel: channel,
@@ -306,6 +306,7 @@ class Verto {
     }
     vertoRef.sendMethod("verto.broadcast", msg);
   }
+
   purge(callID) {
     var vertoRef = this;
     var x = 0;
@@ -326,7 +327,8 @@ class Verto {
       }
     }
   }
-  static hangup(callID) {
+
+  hangup(callID) {
     var vertoRef = this;
     if (callID) {
       var dialog = vertoRef.dialogs[callID];
@@ -340,6 +342,7 @@ class Verto {
       }
     }
   }
+
   newCall(args, callbacks) {
     var vertoRef = this;
 
@@ -356,7 +359,8 @@ class Verto {
     var dialog = new Dialog(
       DIRECTION.outbound,
       vertoRef,
-      args
+      args,
+      Verto.audioOutDevices
     );
 
     if (callbacks) {
@@ -426,7 +430,8 @@ class Verto {
             dialog = new Dialog(
               DIRECTION.inbound,
               vertoRef,
-              data.params
+              data.params,
+              Verto.audioOutDevices
             );
             dialog.setState(STATE.recovering);
 
@@ -443,7 +448,8 @@ class Verto {
             dialog = new Dialog(
               DIRECTION.inbound,
               vertoRef,
-              data.params
+              data.params,
+              Verto.audioOutDevices
             );
             break;
           default:
@@ -497,13 +503,13 @@ class Verto {
             if (!key) {
               key = "UNDEFINED";
             }
-            console.error("UNSUBBED or invalid EVENT " + key + " IGNORED");
+            console.error(`UNSUBBED or invalid EVENT ${key} IGNORED`);
           } else {
             for (var i in list) {
               var sub = list[i];
 
               if (!sub || !sub.ready) {
-                console.error("invalid EVENT for " + key + " IGNORED");
+                console.error(`invalid EVENT for ${key} IGNORED`);
               } else if (sub.handler) {
                 sub.handler(vertoRef, data.params, sub.userData);
               } else if (vertoRef.callbacks.onEvent) {
@@ -527,7 +533,7 @@ class Verto {
           }
           //console.error(data);
           console.debug(
-            "MESSAGE from: " + data.params.msg.from,
+            `MESSAGE from: ${data.params.msg.from}`,
             data.params.msg.body
           );
 
@@ -554,6 +560,7 @@ class Verto {
       }
     }
   }
+
   static liveArray(verto, context, name, config) {
     var la = this;
     var lastSerno = 0;
@@ -858,6 +865,7 @@ class Verto {
 
     la.bootstrap(la.user_obj);
   }
+
   static liveTable(vertoRef, context, name, jq, config) {
     var dt;
     var la = new Verto.liveArray(vertoRef, context, name, {
@@ -998,7 +1006,7 @@ class Verto {
             break;
         }
       } catch (err) {
-        console.error("ERROR: " + err);
+        console.error(`ERROR: ${err}`);
         iserr++;
       }
 
@@ -1081,12 +1089,12 @@ class Verto {
     confMan.canvasCount = confMan.params.laData.canvasCount;
 
     function genMainMod(jq) {
-      var play_id = "play_" + confMan.serno;
-      var stop_id = "stop_" + confMan.serno;
-      var recording_id = "recording_" + confMan.serno;
-      var snapshot_id = "snapshot_" + confMan.serno;
-      var rec_stop_id = "recording_stop" + confMan.serno;
-      var div_id = "confman_" + confMan.serno;
+      var play_id = `play_${confMan.serno}`;
+      var stop_id = `stop_${confMan.serno}`;
+      var recording_id = `recording_${confMan.serno}`;
+      var snapshot_id = `snapshot_${confMan.serno}`;
+      var rec_stop_id = `recording_stop${confMan.serno}`;
+      var div_id = `confman_${confMan.serno}`;
 
       var html = "<div id='" +
         div_id +
@@ -1113,7 +1121,7 @@ class Verto {
       jq.html(html);
 
       vertoRef.modfuncs.change_video_layout = function (id, canvas_id) {
-        var val = document.querySelector("#" + id + " option:selected").textContent;
+        var val = document.querySelector(`#${id} option:selected`).textContent;
         if (val !== "none") {
           confMan.modCommand("vid-layout", null, [val, canvas_id]);
         }
@@ -1121,8 +1129,8 @@ class Verto {
 
       if (confMan.params.hasVid) {
         for (var j = 0; j < confMan.canvasCount; j++) {
-          var vlayout_id = "confman_vid_layout_" + j + "_" + confMan.serno;
-          var vlselect_id = "confman_vl_select_" + j + "_" + confMan.serno;
+          var vlayout_id = `confman_vid_layout_${j}_${confMan.serno}`;
+          var vlselect_id = `confman_vl_select_${j}_${confMan.serno}`;
 
           var vlhtml = "<div id='" +
             vlayout_id +
@@ -1437,8 +1445,8 @@ class Verto {
 
           if (e.data["conf-command"] === "list-videoLayouts") {
             for (var j = 0; j < confMan.canvasCount; j++) {
-              var vlselect_id = "#confman_vl_select_" + j + "_" + confMan.serno;
-              var vlayout_id = "#confman_vid_layout_" + j + "_" + confMan.serno;
+              var vlselect_id = `#confman_vl_select_${j}_${confMan.serno}`;
+              var vlayout_id = `#confman_vid_layout_${j}_${confMan.serno}`;
 
               var x = 0;
               var options;
@@ -1582,9 +1590,14 @@ class Verto {
     );
   }
 
-  static refreshDevices(runtime) {
+  refreshDevices(runtime) {
     checkDevices(runtime);
   }
+
+  genUUID() {
+    return generateUUID()
+  }
+
   static init(obj, runtime) {
     if (!obj) {
       obj = {};
@@ -1617,14 +1630,14 @@ class Verto {
 export default Verto
 
 function drop_bad(verto, channel) {
-  console.error("drop unauthorized channel: " + channel);
+  console.error(`drop unauthorized channel: ${channel}`);
   delete verto.eventSUBS[channel];
 }
 
 function mark_ready(verto, channel) {
   for (var j in verto.eventSUBS[channel]) {
     verto.eventSUBS[channel][j].ready = true;
-    console.log("subscribed to channel: " + channel);
+    console.log(`subscribed to channel: ${channel}`);
     if (verto.eventSUBS[channel][j].readyHandler) {
       verto.eventSUBS[channel][j].readyHandler(verto, channel);
     }
@@ -1760,7 +1773,7 @@ var hashArray = function () {
       delete hash[name];
       r = true;
     } else {
-      console.error("can't del nonexistant key " + name);
+      console.error(`can't del nonexistant key ${name}`);
     }
 
     return r;
@@ -1817,12 +1830,7 @@ var hashArray = function () {
     var str = "";
 
     vha.each(function (name, val) {
-      str +=
-        "name: " +
-        name +
-        " val: " +
-        JSON.stringify(val) +
-        (html ? "<br>" : "\n");
+      str += `name: ${name} val: ${JSON.stringify(val)} ${html ? "<br>" : "\n"}`
     });
 
     return str;
@@ -2031,19 +2039,6 @@ Verto.confMan.destroy = function () {
   }
 };
 
-
-// Attach audio output device to video element using device/sink ID.
-function find_name(id) {
-  for (var i in Verto.audioOutDevices) {
-    var source = Verto.audioOutDevices[i];
-    if (source.id === id) {
-      return source.label;
-    }
-  }
-
-  return id;
-}
-
 Verto.saved = [];
 
 Verto.unloadJobs = [];
@@ -2168,7 +2163,7 @@ var checkDevices = function (runtime) {
           .catch(handleError);
       })
       .catch(function (err) {
-        console.log("The following error occurred: " + err.name);
+        console.log(`The following error occurred: ${err.name}`);
       });
   }
 
